@@ -6,13 +6,13 @@
   "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#05050a",
-  "theme_color": "#00f0ff",
+  "theme_color": "#05050a",
   "icons": [
     {
       "src": "icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

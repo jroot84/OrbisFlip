@@ -1,14 +1,18 @@
 {
   "name": "Orbis Flip",
-  "short_name": "OrbisFlip",
-  "description": "A simple, addictive time-challenge orbit game.",
-  "start_url": "./",
-  "scope": "./",
-  "display": "standalone",
+  "short_name": "Orbis Flip",
+  "description": "A beautiful, hyper-addictive minimalist arcade game. Tap to invert your orbit, collect light shards, and beat the clock.",
+  "start_url": "index.html",
+  "display": "fullscreen",
   "orientation": "portrait",
-  "background_color": "#F5F6F2",
-  "theme_color": "#1F6F54",
+  "background_color": "#05050a",
+  "theme_color": "#00f0ff",
   "icons": [
-    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }

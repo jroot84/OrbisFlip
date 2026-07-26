@@ -38,8 +38,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository contents (includes index.html, privacy.html, manifest.json, icon.png)
-          path: '.'
+          # Changed from '.' to 'www' to deploy files straight from your www folder
+          path: 'www'
 
       - name: Deploy to GitHub Pages
         id: deployment

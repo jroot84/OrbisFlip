@@ -80,6 +80,12 @@ canvas {
 .screen.active {
   display: flex;
 }
+#screen-options {
+  overflow-y: auto;
+  justify-content: flex-start;
+  padding-top: max(28px, env(safe-area-inset-top, 28px));
+  padding-bottom: 28px;
+}
 #hud {
   position: absolute;
   top: 0;
@@ -357,6 +363,16 @@ h2 {
   border-color: var(--neon-blue);
   font-weight: 900;
 }
+.color-input {
+  width: 48px;
+  height: 34px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+}
 .selector-container.compact {
   width: auto;
   flex: 1;
@@ -422,7 +438,7 @@ h2 {
     </div>
 
     <div id="screen-options" class="screen">
-      <h2>Options</h2>
+      <h2 id="options-title" onclick="handleDevTap()">Options</h2>
       <div class="settings-card">
         <div class="settings-block">
           <span class="settings-label">Music</span>
@@ -447,8 +463,36 @@ h2 {
             <button id="opt-sfx-off" class="selector-opt" onclick="setSfxEnabled(false)">Off</button>
           </div>
         </div>
+        <div class="settings-row" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+          <span class="settings-label">Flip Sound</span>
+          <div class="selector-container compact" id="flip-sound-selector">
+            <button id="opt-flip-on" class="selector-opt active" onclick="setFlipSoundEnabled(true)">On</button>
+            <button id="opt-flip-off" class="selector-opt" onclick="setFlipSoundEnabled(false)">Off</button>
+          </div>
+        </div>
+        <div class="settings-block" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+          <span class="settings-label">Flip Sound Style</span>
+          <div class="track-grid" id="flip-style-selector">
+            <button id="opt-flip-mechanical" class="track-opt active" onclick="setFlipSoundStyle('mechanical')">Mechanical</button>
+            <button id="opt-flip-soft" class="track-opt" onclick="setFlipSoundStyle('soft')">Soft Blip</button>
+            <button id="opt-flip-digital" class="track-opt" onclick="setFlipSoundStyle('digital')">Digital Tick</button>
+          </div>
+        </div>
       </div>
-      <button class="btn" onclick="closeOptions()">Back</button>
+
+      <div class="settings-card" style="margin-top: 4px;">
+        <div class="settings-row">
+          <span class="settings-label">Shard Color</span>
+          <input type="color" id="shard-color-input" class="color-input" value="#00f0ff" oninput="setShardColor(this.value)">
+        </div>
+        <div class="settings-row" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+          <span class="settings-label">Hazard Color</span>
+          <input type="color" id="hazard-color-input" class="color-input" value="#ff007f" oninput="setHazardColor(this.value)">
+        </div>
+        <button class="btn btn-secondary" style="width: 100%; margin: 12px 0 0 0;" onclick="resetDotColors()">Reset Colors</button>
+      </div>
+
+      <button class="btn" style="margin-top: 6px;" onclick="closeOptions()">Back</button>
     </div>
 
     <div id="screen-howto" class="screen">
@@ -509,9 +553,9 @@ h2 {
 <script>
 const TOTAL_LEVELS = 16;
 const DIFFICULTIES = {
-  easy: { speedMod: 0.7, spawnMod: 1.2 },
-  medium: { speedMod: 1.0, spawnMod: 1.0 },
-  hard: { speedMod: 1.4, spawnMod: 0.8 }
+  easy: { speedMod: 0.7, spawnMod: 1.2, spiceWeight: 0.6 },
+  medium: { speedMod: 1.0, spawnMod: 1.0, spiceWeight: 1.0 },
+  hard: { speedMod: 1.4, spawnMod: 0.8, spiceWeight: 1.3 }
 };
 
 let currentDifficulty = 'easy';
@@ -536,6 +580,89 @@ let spawnTimer = 0;
 let spawnInterval = 1000;
 let pausedAt = 0;
 
+// Dot colors -- customizable for colorblind accessibility. These drive
+// every place a shard/hazard is rendered, so changing them here is enough.
+let SHARD_COLOR = '#00f0ff';
+let HAZARD_COLOR = '#ff007f';
+const DEFAULT_SHARD_COLOR = '#00f0ff';
+const DEFAULT_HAZARD_COLOR = '#ff007f';
+
+// Sector background theme -- deterministic per level (golden-angle hue
+// spacing gives 16 well-distributed, non-repeating hues), so revisiting a
+// level always shows the same look, and progressing feels like unlocking
+// a new one.
+let sectorTheme = null;
+function seededRandom(seed) {
+  let t = seed += 0x6D2B79F5;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+function generateStarfield(level) {
+  const count = 45 + Math.floor(seededRandom(level * 9001) * 60);
+  const stars = [];
+  for (let i = 0; i < count; i++) {
+    const base = level * 1000 + i * 13;
+    stars.push({
+      xFrac: seededRandom(base + 1),
+      yFrac: seededRandom(base + 2),
+      size: 0.7 + seededRandom(base + 3) * 1.6,
+      phase: seededRandom(base + 4) * Math.PI * 2,
+      twinkleSpeed: 0.4 + seededRandom(base + 5) * 1.4
+    });
+  }
+  return stars;
+}
+
+function computeSectorTheme(level) {
+  const goldenAngle = 137.508;
+  const hue = (level * goldenAngle) % 360;
+  const hue2 = (hue + 40) % 360;
+  const seedA = (level * 7) % 10;
+  const seedB = (level * 13) % 10;
+  const seedC = (level * 11) % 10;
+  const seedD = (level * 17) % 10;
+  return {
+    bg: `hsl(${hue}, 42%, 7%)`,
+    grid: `hsla(${hue}, 40%, 70%, 0.035)`,
+    nebula1Core: `hsla(${hue}, 70%, 42%, 0.28)`,
+    nebula1Mid: `hsla(${hue}, 65%, 35%, 0.14)`,
+    nebula2Core: `hsla(${hue2}, 70%, 42%, 0.22)`,
+    nebula2Mid: `hsla(${hue2}, 65%, 35%, 0.1)`,
+    blob1: { xFrac: 0.15 + (seedA / 10) * 0.4, yFrac: 0.12 + (seedB / 10) * 0.3 },
+    blob2: { xFrac: 0.55 + (seedC / 10) * 0.3, yFrac: 0.55 + (seedD / 10) * 0.35 },
+    stars: generateStarfield(level)
+  };
+}
+
+// Hazard "spice" -- how often growing/trailing/satellite/dimming variants
+// appear, ramping smoothly across levels and difficulty. Capped so no
+// level ever throws 100% exotic hazards, and dimming (the riskiest variant
+// for fairness) only unlocks in the back half of the ramp.
+function getSpiceFactor(level, difficulty) {
+  const levelProgress = (level - 1) / (TOTAL_LEVELS - 1);
+  const weight = DIFFICULTIES[difficulty].spiceWeight;
+  return Math.min(levelProgress * weight, 1.0);
+}
+
+function pickHazardVariant(spice) {
+  if (Math.random() > spice * 0.55) return 'none';
+  const roll = Math.random();
+  if (spice < 0.35) {
+    return roll < 0.55 ? 'trail' : 'grow';
+  } else if (spice < 0.65) {
+    if (roll < 0.35) return 'trail';
+    if (roll < 0.7) return 'grow';
+    return 'satellite';
+  } else {
+    if (roll < 0.25) return 'trail';
+    if (roll < 0.5) return 'grow';
+    if (roll < 0.75) return 'satellite';
+    return 'dim';
+  }
+}
+
 const gameContainer = document.getElementById('game-container');
 
 /* =========================================================
@@ -554,8 +681,17 @@ let currentTrack = 'hush';
 let musicAudio = null;
 let musicMuted = false;
 let sfxMuted = false;
+let flipSoundEnabled = true;
+let flipSoundStyle = 'mechanical';
+let lastFlipSoundTime = 0;
+const FLIP_SOUND_COOLDOWN_MS = 45;
 const MUSIC_VOLUME = 0.5;
 const SFX_VOLUME = 0.85;
+const FLIP_SOUNDS = {
+  mechanical: 'audio/flip-mechanical.mp3',
+  soft: 'audio/flip-soft.mp3',
+  digital: 'audio/flip-digital.mp3'
+};
 
 function loadMusicTrack(trackKey, autoplay) {
   const wasPlaying = autoplay || (musicAudio && !musicAudio.paused);
@@ -590,6 +726,51 @@ function playHazardSound() {
   const s = new Audio('audio/sfx-hazard.mp3');
   s.volume = SFX_VOLUME;
   s.play().catch(() => {});
+}
+
+function playFlipSound() {
+  if (!flipSoundEnabled) return;
+  const now = performance.now();
+  if (now - lastFlipSoundTime < FLIP_SOUND_COOLDOWN_MS) return;
+  lastFlipSoundTime = now;
+  const s = new Audio(FLIP_SOUNDS[flipSoundStyle]);
+  s.volume = 0.6;
+  s.play().catch(() => {});
+}
+
+function setFlipSoundEnabled(enabled) {
+  flipSoundEnabled = enabled;
+  document.getElementById('opt-flip-on').classList.toggle('active', enabled);
+  document.getElementById('opt-flip-off').classList.toggle('active', !enabled);
+  saveStorage();
+}
+
+function setFlipSoundStyle(styleKey) {
+  flipSoundStyle = styleKey;
+  document.querySelectorAll('#flip-style-selector .track-opt').forEach(b => b.classList.remove('active'));
+  document.getElementById(`opt-flip-${styleKey}`).classList.add('active');
+  saveStorage();
+  const preview = new Audio(FLIP_SOUNDS[styleKey]);
+  preview.volume = 0.6;
+  preview.play().catch(() => {});
+}
+
+function setShardColor(hex) {
+  SHARD_COLOR = hex;
+  saveStorage();
+}
+
+function setHazardColor(hex) {
+  HAZARD_COLOR = hex;
+  saveStorage();
+}
+
+function resetDotColors() {
+  SHARD_COLOR = DEFAULT_SHARD_COLOR;
+  HAZARD_COLOR = DEFAULT_HAZARD_COLOR;
+  document.getElementById('shard-color-input').value = SHARD_COLOR;
+  document.getElementById('hazard-color-input').value = HAZARD_COLOR;
+  saveStorage();
 }
 
 function unlockAudioOnce() {
@@ -640,11 +821,19 @@ function initStorage() {
     const savedTrack = localStorage.getItem('orbit_track_v1');
     const savedMusicOn = localStorage.getItem('orbit_music_v1');
     const savedSfxOn = localStorage.getItem('orbit_sfx_v1');
+    const savedFlipOn = localStorage.getItem('orbit_flip_sound_v1');
+    const savedFlipStyle = localStorage.getItem('orbit_flip_style_v1');
+    const savedShardColor = localStorage.getItem('orbit_shard_color_v1');
+    const savedHazardColor = localStorage.getItem('orbit_hazard_color_v1');
     if (savedUnlocks) unlockedLevels = JSON.parse(savedUnlocks);
     if (savedRecords) speedRecords = JSON.parse(savedRecords);
     if (savedTrack && MUSIC_TRACKS[savedTrack]) currentTrack = savedTrack;
     if (savedMusicOn !== null) musicMuted = savedMusicOn === '0';
     if (savedSfxOn !== null) sfxMuted = savedSfxOn === '0';
+    if (savedFlipOn !== null) flipSoundEnabled = savedFlipOn === '1';
+    if (savedFlipStyle && FLIP_SOUNDS[savedFlipStyle]) flipSoundStyle = savedFlipStyle;
+    if (savedShardColor) SHARD_COLOR = savedShardColor;
+    if (savedHazardColor) HAZARD_COLOR = savedHazardColor;
   } catch(e) { console.warn("Storage not reachable:", e); }
 }
 
@@ -655,6 +844,10 @@ function saveStorage() {
     localStorage.setItem('orbit_track_v1', currentTrack);
     localStorage.setItem('orbit_music_v1', musicMuted ? '0' : '1');
     localStorage.setItem('orbit_sfx_v1', sfxMuted ? '0' : '1');
+    localStorage.setItem('orbit_flip_sound_v1', flipSoundEnabled ? '1' : '0');
+    localStorage.setItem('orbit_flip_style_v1', flipSoundStyle);
+    localStorage.setItem('orbit_shard_color_v1', SHARD_COLOR);
+    localStorage.setItem('orbit_hazard_color_v1', HAZARD_COLOR);
   } catch(e) { console.warn("Failed to write progress:", e); }
 }
 
@@ -668,6 +861,16 @@ function reflectOptionsUI() {
 
   document.getElementById('opt-sfx-on').classList.toggle('active', !sfxMuted);
   document.getElementById('opt-sfx-off').classList.toggle('active', sfxMuted);
+
+  document.getElementById('opt-flip-on').classList.toggle('active', flipSoundEnabled);
+  document.getElementById('opt-flip-off').classList.toggle('active', !flipSoundEnabled);
+
+  document.querySelectorAll('#flip-style-selector .track-opt').forEach(b => b.classList.remove('active'));
+  const flipStyleBtn = document.getElementById(`opt-flip-${flipSoundStyle}`);
+  if (flipStyleBtn) flipStyleBtn.classList.add('active');
+
+  document.getElementById('shard-color-input').value = SHARD_COLOR;
+  document.getElementById('hazard-color-input').value = HAZARD_COLOR;
 }
 
 function resize() {
@@ -730,6 +933,29 @@ function quitToMenu() {
   showScreen('screen-main');
 }
 
+// Hidden dev shortcut: tap the "Options" title 7 times in a row (within a
+// couple seconds) to unlock every level on every difficulty, for testing.
+// No visible UI hint -- same idea as tapping a phone's build number.
+let devTapCount = 0;
+let devTapResetTimer = null;
+
+function handleDevTap() {
+  devTapCount++;
+  if (devTapResetTimer) clearTimeout(devTapResetTimer);
+  devTapResetTimer = setTimeout(() => { devTapCount = 0; }, 2500);
+
+  if (devTapCount >= 7) {
+    devTapCount = 0;
+    clearTimeout(devTapResetTimer);
+    unlockedLevels = { easy: TOTAL_LEVELS, medium: TOTAL_LEVELS, hard: TOTAL_LEVELS };
+    saveStorage();
+    const title = document.getElementById('options-title');
+    const original = title.innerText;
+    title.innerText = 'Options 🔓';
+    setTimeout(() => { title.innerText = original; }, 1200);
+  }
+}
+
 function setDifficulty(diff) {
   currentDifficulty = diff;
   document.querySelectorAll('#difficulty-selector .selector-opt').forEach(b => b.classList.remove('active'));
@@ -772,6 +998,7 @@ function launchLevel(levelNum) {
   elapsedTime = 0;
   startTime = performance.now();
   lastTime = performance.now();
+  sectorTheme = computeSectorTheme(levelNum);
 
   const mods = DIFFICULTIES[currentDifficulty];
   player.angle = 0;
@@ -808,6 +1035,7 @@ function handleTapInput(e) {
   if (e.target && e.target.id === 'btn-pause') return;
   if (e && e.cancelable) e.preventDefault();
   player.dir *= -1;
+  playFlipSound();
 }
 
 window.addEventListener('touchstart', handleTapInput, { passive: false });
@@ -833,15 +1061,36 @@ function generateEntity() {
   const speedMagnitude = (1.1 + (currentLevel * 0.08)) * DIFFICULTIES[currentDifficulty].speedMod;
   const velocityVector = spawnFromCenter ? speedMagnitude : -speedMagnitude;
 
-  entities.push({
+  const entity = {
     x: cX + Math.cos(angle) * radiusDist,
     y: cY + Math.sin(angle) * radiusDist,
     angle: angle,
     dist: radiusDist,
     v: velocityVector,
     isHazard: isHazard,
-    size: isHazard ? 7 : 6
-  });
+    size: isHazard ? 7 : 6,
+    variant: 'none'
+  };
+
+  if (isHazard) {
+    const spice = getSpiceFactor(currentLevel, currentDifficulty);
+    entity.menace = spice;
+    entity.variant = pickHazardVariant(spice);
+    if (entity.variant === 'grow') {
+      entity.growthAmount = Math.min(0.35 + Math.random() * 0.25 + spice * 0.1, 0.7);
+    } else if (entity.variant === 'satellite') {
+      entity.satAngle = Math.random() * Math.PI * 2;
+      entity.satOmega = 0.1 + Math.random() * 0.06;
+      entity.satOrbitRadius = 12;
+      entity.satSize = 3.5;
+      entity.satX = entity.x;
+      entity.satY = entity.y;
+    } else if (entity.variant === 'dim') {
+      entity.dimSeed = Math.random() * 100;
+    }
+  }
+
+  entities.push(entity);
 }
 
 function update(dt) {
@@ -865,6 +1114,21 @@ function update(dt) {
     ent.dist += ent.v * (dt / 16.66);
     ent.x = cX + Math.cos(ent.angle) * ent.dist;
     ent.y = cY + Math.sin(ent.angle) * ent.dist;
+
+    if (ent.variant === 'satellite') {
+      ent.satAngle += ent.satOmega * (dt / 16.66);
+      ent.satX = ent.x + Math.cos(ent.satAngle) * ent.satOrbitRadius;
+      ent.satY = ent.y + Math.sin(ent.satAngle) * ent.satOrbitRadius;
+
+      const sdx = ent.satX - player.x;
+      const sdy = ent.satY - player.y;
+      const sRange = Math.sqrt(sdx * sdx + sdy * sdy);
+      if (sRange < (ent.satSize + player.size)) {
+        playHazardSound();
+        processGameOver();
+        continue;
+      }
+    }
 
     let dx = ent.x - player.x;
     let dy = ent.y - player.y;
@@ -990,10 +1254,44 @@ function processLevelClear() {
 }
 
 function draw() {
-  ctx.fillStyle = '#05050a';
+  const theme = sectorTheme || computeSectorTheme(currentLevel);
+
+  ctx.fillStyle = theme.bg;
   ctx.fillRect(0, 0, width, height);
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+  // Two bold, deterministic nebula clouds for per-sector visual identity --
+  // a three-stop gradient gives a richer "cloud" look than a flat fade.
+  const b1x = width * theme.blob1.xFrac, b1y = height * theme.blob1.yFrac;
+  const g1 = ctx.createRadialGradient(b1x, b1y, 0, b1x, b1y, Math.max(width, height) * 0.42);
+  g1.addColorStop(0, theme.nebula1Core);
+  g1.addColorStop(0.45, theme.nebula1Mid);
+  g1.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g1;
+  ctx.fillRect(0, 0, width, height);
+
+  const b2x = width * theme.blob2.xFrac, b2y = height * theme.blob2.yFrac;
+  const g2 = ctx.createRadialGradient(b2x, b2y, 0, b2x, b2y, Math.max(width, height) * 0.38);
+  g2.addColorStop(0, theme.nebula2Core);
+  g2.addColorStop(0.45, theme.nebula2Mid);
+  g2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g2;
+  ctx.fillRect(0, 0, width, height);
+
+  // Twinkling starfield -- unique count/positions per level (seeded), so
+  // each sector reads as visibly distinct even before any nebula color
+  // registers.
+  const now = performance.now();
+  theme.stars.forEach(star => {
+    const sx = star.xFrac * width;
+    const sy = star.yFrac * height;
+    const twinkle = 0.5 + 0.5 * Math.sin(now * 0.0015 * star.twinkleSpeed + star.phase);
+    ctx.beginPath();
+    ctx.arc(sx, sy, star.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${(0.3 + 0.55 * twinkle).toFixed(3)})`;
+    ctx.fill();
+  });
+
+  ctx.strokeStyle = theme.grid;
   ctx.lineWidth = 1;
   const gridSize = 40;
   for (let x = 0; x < width; x += gridSize) {
@@ -1017,19 +1315,97 @@ function draw() {
 
   if (gameState === 'playing' || gameState === 'paused' || gameState === 'gameover' || gameState === 'clear') {
     entities.forEach(ent => {
-      ctx.beginPath();
-      ctx.arc(ent.x, ent.y, ent.size, 0, Math.PI * 2);
-      if (ent.isHazard) {
-        ctx.fillStyle = '#ff007f';
-        ctx.shadowColor = '#ff007f';
-        ctx.shadowBlur = 10;
-      } else {
-        ctx.fillStyle = '#00f0ff';
-        ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = 8;
+      const proximity = Math.max(0, 1 - Math.abs(ent.dist - baseRadius) / (baseRadius * 0.6));
+      const farFromRing = Math.abs(ent.dist - baseRadius) > baseRadius * 0.35;
+
+      let renderSize = ent.size;
+      let opacity = 1;
+
+      if (ent.variant === 'grow') {
+        renderSize = ent.size * (1 + ent.growthAmount * proximity);
       }
+      if (ent.variant === 'dim' && farFromRing) {
+        const flicker = Math.sin(ent.dist * 0.04 + ent.dimSeed) * 0.5 + 0.5;
+        opacity = 0.4 + 0.5 * flicker;
+      }
+
+      const color = ent.isHazard ? HAZARD_COLOR : SHARD_COLOR;
+      const menace = ent.isHazard ? (ent.menace || 0) : 0;
+
+      ctx.save();
+      ctx.globalAlpha = opacity;
+
+      if (ent.variant === 'trail') {
+        const dirSign = ent.v > 0 ? -1 : 1;
+        const trailLen = 24;
+        const steps = 6;
+        for (let s = steps; s >= 1; s--) {
+          const frac = s / steps;
+          const trailDist = ent.dist + dirSign * trailLen * frac;
+          const tx = cX + Math.cos(ent.angle) * trailDist;
+          const ty = cY + Math.sin(ent.angle) * trailDist;
+          ctx.beginPath();
+          ctx.arc(tx, ty, renderSize * (1 - frac * 0.5), 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.globalAlpha = opacity * (1 - frac) * 0.5;
+          ctx.fill();
+        }
+        ctx.globalAlpha = opacity;
+      }
+
+      // Pulsing jagged threat aura -- purely decorative, drawn OUTSIDE the
+      // true hitbox radius so it never misrepresents the actual collision
+      // area. Scales up with level/difficulty so late-game hazards read as
+      // visibly more dangerous without changing how big they actually are.
+      if (menace > 0.08) {
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.005 * (0.6 + menace) + ent.dist * 0.02);
+        const auraRadius = renderSize * (1.5 + 0.6 * menace * pulse);
+        const spikes = 9;
+        ctx.beginPath();
+        for (let i = 0; i <= spikes * 2; i++) {
+          const a = (Math.PI / spikes) * i;
+          const jag = (i % 2 === 0) ? 1 : (1 - menace * 0.5);
+          const r = auraRadius * jag;
+          const px = ent.x + Math.cos(a) * r;
+          const py = ent.y + Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = opacity * menace * (0.35 + 0.35 * pulse);
+        ctx.stroke();
+        ctx.globalAlpha = opacity;
+      }
+
+      ctx.beginPath();
+      ctx.arc(ent.x, ent.y, renderSize, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = ent.isHazard ? (10 + menace * 10) : 8;
       ctx.fill();
       ctx.shadowBlur = 0;
+
+      if (ent.variant === 'satellite') {
+        ctx.beginPath();
+        ctx.moveTo(ent.x, ent.y);
+        ctx.lineTo(ent.satX, ent.satY);
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = opacity * 0.3;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.globalAlpha = opacity;
+
+        ctx.beginPath();
+        ctx.arc(ent.satX, ent.satY, ent.satSize, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.restore();
     });
 
     ctx.beginPath();
@@ -1053,6 +1429,7 @@ function loop(timestamp) {
 }
 
 initStorage();
+sectorTheme = computeSectorTheme(currentLevel);
 reflectOptionsUI();
 resize();
 showScreen('screen-main');

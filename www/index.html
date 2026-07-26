@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Orbis Flip</title>
+    <style>
+        :root {
+            --bg-color: #05050a;
+            --panel-bg: rgba(15, 15, 30, 0.85);
+            --border-color: rgba(0, 240, 255, 0.3);
+            --text-color: #ffffff;
+            --neon-blue: #00f0ff;
+            --neon-pink: #ff007f;
+            --neon-green: #39ff14;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            background: var(--bg-color);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 20px;
+            pointer-events: auto;
+            text-align: center;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: env(safe-area-inset-top, 20px) 20px 0 20px;
+            display: none;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .hud-panel {
+            background: rgba(5, 5, 10, 0.75);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            letter-spacing: 1px;
+            backdrop-filter: blur(4px);
+        }
+
+        .hud-label {
+            font-size: 10px;
+            color: #8a8a9a;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .hud-value {
+            font-weight: bold;
+            font-family: monospace;
+            font-size: 18px;
+        }
+
+        .btn-quit {
+            background: rgba(255, 0, 127, 0.15);
+            border: 1px solid var(--neon-pink);
+            color: #ffccdd;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.2s ease;
+        }
+
+        .btn-quit:active {
+            background: var(--neon-pink);
+            color: #000;
+            box-shadow: 0 0 15px var(--neon-pink);
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 11px;
+            color: #8a8a9a;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            color: var(--neon-blue);
+        }
+
+        .btn {
+            background: transparent;
+            color: #fff;
+            border: 1px solid var(--neon-blue);
+            padding: 12px 30px;
+            font-size: 15px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 80%;
+            max-width: 280px;
+            margin: 8px 0;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        .btn:active {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-blue);
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        .btn-secondary:active {
+            background: #fff;
+            color: #000;
+            box-shadow: 0 0 20px #fff;
+        }
+
+        .selector-container {
+            width: 80%;
+            max-width: 280px;
+            display: flex;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .selector-opt {
+            flex: 1;
+            padding: 10px 0;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: transparent;
+            border: none;
+            color: #8a8a9a;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .selector-opt.active {
+            background: var(--neon-blue);
+            color: #000;
+            font-weight: 900;
+        }
+
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 320px;
+            margin-bottom: 25px;
+        }
+
+        .level-node {
+            aspect-ratio: 1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .level-node.unlocked {
+            border-color: var(--border-color);
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        .level-node.unlocked:active {
+            background: var(--neon-blue);
+            color: #000;
+        }
+
+        .level-num {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .level-record {
+            font-size: 8px;
+            font-family: monospace;
+            color: var(--neon-green);
+            margin-top: 2px;
+        }
+
+        .level-node.locked {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .info-panel {
+            width: 85%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #ccc;
+            text-align: left;
+            margin-bottom: 25px;
+        }
+
+        .info-item {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .info-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }
+
+        .analytics {
+            margin: 20px 0;
+        }
+        .analytics div {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .highlight {
+            color: var(--neon-blue);
+            font-weight: bold;
+        }
+        .record-alert {
+            color: var(--neon-green);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="hud">
+        <div class="hud-panel">
+            <div class="hud-label">Objective</div>
+            <div id="hud-target" class="hud-value">0/10</div>
+        </div>
+        <button class="btn-quit" id="btn-quit-match">Menu</button>
+        <div class="hud-panel" style="text-align: right;">
+            <div class="hud-label">Time</div>
+            <div id="hud-timer" class="hud-value">0.00s</div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div id="screen-main" class="screen active">
+            <h1>Orbis Flip</h1>
+            <div class="subtitle">Cosmic Drift</div>
+
+            <div class="selector-container">
+                <button id="opt-easy" class="selector-opt active" onclick="setDifficulty('easy')">Easy</button>
+                <button id="opt-medium" class="selector-opt" onclick="setDifficulty('medium')">Med</button>
+                <button id="opt-hard" class="selector-opt" onclick="setDifficulty('hard')">Hard</button>
+            </div>
+
+            <div class="level-grid" id="levelGrid"></div>
+
+            <button class="btn btn-secondary" onclick="showScreen('screen-howto')">How To Play</button>
+        </div>
+
+        <div id="screen-howto" class="screen">
+            <h2>How To Play</h2>
+            <div class="info-panel">
+                <div class="info-item">
+                    <div class="info-dot" style="background: var(--neon-blue);"></div>
+                    <div><strong>Tap or Click anywhere</strong> on the background during a match to instantly reverse your orbit trajectory.</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-dot" style="background: var(--neon-blue); box-shadow: 0 0 8px var(--neon-blue);"></div>
+                    <div>Intercept falling <strong>Light Shards</strong> to increase your score toward the target goal.</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-dot" style="background: var(--neon-pink); box-shadow: 0 0 8px var(--neon-pink);"></div>
+                    <div>Avoid radiating <strong>Antimatter Orbs</strong>. Colliding with one collapses your orbit instantly.</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-dot" style="background: var(--neon-green);"></div>
+                    <div>Clear the level objective as fast as possible to secure your personal best speed record!</div>
+                </div>
+            </div>
+            <button class="btn" onclick="showScreen('screen-main')">Got It</button>
+        </div>
+
+        <div id="screen-gameover" class="screen">
+            <h2 id="over-title" style="color: var(--neon-pink);">Orbis Flopped</h2>
+            <div class="analytics">
+                <div id="over-status">Level 1 Failed</div>
+                <div>Target Achieved: <span id="over-score" class="highlight">0/10</span></div>
+                <div>Time Active: <span id="over-time" class="highlight">0.00s</span></div>
+                <div id="over-record" class="record-alert"></div>
+            </div>
+            <button class="btn" onclick="retryLevel()">Try Again</button>
+            <button class="btn btn-secondary" onclick="showScreen('screen-main')">Level Selection</button>
+        </div>
+
+        <div id="screen-clear" class="screen">
+            <h2 style="color: var(--neon-green);">Sector Cleared!</h2>
+            <div class="analytics">
+                <div id="clear-level" style="font-weight: bold;">Sector 1 Completed</div>
+                <div>Completion Time: <span id="clear-time" class="highlight">0.00s</span></div>
+                <div id="clear-record" class="record-alert">🏆 NEW PERSONAL BEST!</div>
+            </div>
+            <button id="btn-next" class="btn" onclick="nextLevel()">Next Sector</button>
+            <button class="btn btn-secondary" onclick="showScreen('screen-main')">Level Selection</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const TOTAL_LEVELS = 16;
+    const DIFFICULTIES = {
+        easy: { speedMod: 0.7, spawnMod: 1.2 },
+        medium: { speedMod: 1.0, spawnMod: 1.0 },
+        hard: { speedMod: 1.4, spawnMod: 0.8 }
+    };
+
+    let currentDifficulty = 'easy';
+    let currentLevel = 1;
+    let unlockedLevels = { easy: 1, medium: 1, hard: 1 };
+    let speedRecords = { easy: {}, medium: {}, hard: {} };
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let dpr = window.devicePixelRatio || 1;
+    let width, height, cX, cY, baseRadius;
+
+    let gameState = 'menu';
+    let score = 0;
+    let targetScore = 10;
+    let startTime = 0;
+    let elapsedTime = 0;
+    let lastTime = 0;
+
+    let player = { angle: 0, dir: 1, speed: 0.04, size: 8 };
+    let entities = [];
+    let spawnTimer = 0;
+    let spawnInterval = 1000;
+
+    const gameContainer = document.getElementById('game-container');
+
+    function initStorage() {
+        try {
+            const savedUnlocks = localStorage.getItem('orbit_unlocked_v2');
+            const savedRecords = localStorage.getItem('orbit_records_v2');
+            if (savedUnlocks) unlockedLevels = JSON.parse(savedUnlocks);
+            if (savedRecords) speedRecords = JSON.parse(savedRecords);
+        } catch(e) { console.warn("Storage not reachable:", e); }
+    }
+
+    function saveStorage() {
+        try {
+            localStorage.setItem('orbit_unlocked_v2', JSON.stringify(unlockedLevels));
+            localStorage.setItem('orbit_records_v2', JSON.stringify(speedRecords));
+        } catch(e) { console.warn("Failed to write progress:", e); }
+    }
+
+    function resize() {
+        const box = gameContainer.getBoundingClientRect();
+        width = box.width || window.innerWidth;
+        height = box.height || window.innerHeight;
+        
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.scale(dpr, dpr);
+        
+        cX = width / 2;
+        cY = height / 2;
+        baseRadius = Math.min(width, height) * 0.32;
+    }
+
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        
+        if(screenId) {
+            document.getElementById(screenId).classList.add('active');
+        }
+        
+        if (screenId === 'screen-main') {
+            gameState = 'menu';
+            renderLevelGrid();
+            document.getElementById('hud').style.display = 'none';
+        }
+    }
+
+    function setDifficulty(diff) {
+        currentDifficulty = diff;
+        document.querySelectorAll('.selector-opt').forEach(b => b.classList.remove('active'));
+        document.getElementById(`opt-${diff}`).classList.add('active');
+        renderLevelGrid();
+    }
+
+    function renderLevelGrid() {
+        const grid = document.getElementById('levelGrid');
+        grid.innerHTML = '';
+        
+        const currentUnlock = unlockedLevels[currentDifficulty] || 1;
+        const diffRecords = speedRecords[currentDifficulty] || {};
+
+        for (let i = 1; i <= TOTAL_LEVELS; i++) {
+            const node = document.createElement('div');
+            const isUnlocked = i <= currentUnlock;
+            
+            node.className = `level-node ${isUnlocked ? 'unlocked' : 'locked'}`;
+            
+            if (isUnlocked) {
+                const recordTime = diffRecords[i];
+                node.innerHTML = `
+                    <div class="level-num">${i}</div>
+                    <div class="level-record">${recordTime ? recordTime.toFixed(2)+'s' : '---'}</div>
+                `;
+                node.onclick = (e) => {
+                    e.stopPropagation();
+                    launchLevel(i);
+                };
+            } else {
+                node.innerHTML = `<div class="level-num">🔒</div>`;
+            }
+            grid.appendChild(node);
+        }
+    }
+
+    function launchLevel(levelNum) {
+        currentLevel = levelNum;
+        score = 0;
+        targetScore = 5 + (levelNum * 5);
+        elapsedTime = 0;
+        startTime = performance.now();
+        lastTime = performance.now();
+        
+        const mods = DIFFICULTIES[currentDifficulty];
+        player.angle = 0;
+        player.dir = 1;
+        player.speed = (0.03 + (levelNum * 0.0015)) * mods.speedMod;
+        
+        spawnInterval = (1200 - (levelNum * 35)) * mods.spawnMod;
+        if(spawnInterval < 450) spawnInterval = 450;
+
+        entities = [];
+        spawnTimer = 0;
+        
+        document.getElementById('hud-target').innerText = `0/${targetScore}`;
+        document.getElementById('hud-timer').innerText = `0.00s`;
+        document.getElementById('hud').style.display = 'flex';
+        
+        gameState = 'playing';
+        showScreen(null);
+    }
+
+    function retryLevel() {
+        launchLevel(currentLevel);
+    }
+
+    function nextLevel() {
+        if (currentLevel < TOTAL_LEVELS) {
+            launchLevel(currentLevel + 1);
+        } else {
+            showScreen('screen-main');
+        }
+    }
+
+    function handleTapInput(e) {
+        if (gameState !== 'playing') return;
+        if (e.target && e.target.id === 'btn-quit-match') return;
+
+        if (e && e.cancelable) e.preventDefault();
+        player.dir *= -1;
+    }
+
+    window.addEventListener('touchstart', handleTapInput, { passive: false });
+    window.addEventListener('mousedown', handleTapInput);
+
+    document.getElementById('btn-quit-match').addEventListener('click', (e) => {
+        e.stopPropagation();
+        gameState = 'menu';
+        showScreen('screen-main');
+    });
+    document.getElementById('btn-quit-match').addEventListener('touchstart', (e) => {
+        e.stopPropagation();
+        gameState = 'menu';
+        showScreen('screen-main');
+    });
+
+    window.addEventListener('resize', resize);
+
+    function generateEntity() {
+        const isHazard = Math.random() > 0.45;
+        const angle = Math.random() * Math.PI * 2;
+        
+        const spawnFromCenter = Math.random() > 0.5;
+        const maxDist = Math.max(width, height);
+        const radiusDist = spawnFromCenter ? 5 : maxDist * 0.6;
+        
+        const speedMagnitude = (1.1 + (currentLevel * 0.08)) * DIFFICULTIES[currentDifficulty].speedMod;
+        const velocityVector = spawnFromCenter ? speedMagnitude : -speedMagnitude;
+
+        entities.push({
+            x: cX + Math.cos(angle) * radiusDist,
+            y: cY + Math.sin(angle) * radiusDist,
+            angle: angle,
+            dist: radiusDist,
+            v: velocityVector,
+            isHazard: isHazard,
+            size: isHazard ? 7 : 6
+        });
+    }
+
+    function update(dt) {
+        if (gameState !== 'playing') return;
+
+        elapsedTime = (performance.now() - startTime) / 1000;
+        document.getElementById('hud-timer').innerText = elapsedTime.toFixed(2) + 's';
+
+        player.angle += player.speed * player.dir * (dt / 16.66);
+
+        player.x = cX + Math.cos(player.angle) * baseRadius;
+        player.y = cY + Math.sin(player.angle) * baseRadius;
+
+        spawnTimer += dt;
+        if (spawnTimer >= spawnInterval) {
+            generateEntity();
+            spawnTimer = 0;
+        }
+
+        for (let i = entities.length - 1; i >= 0; i--) {
+            let ent = entities[i];
+            
+            ent.dist += ent.v * (dt / 16.66);
+            ent.x = cX + Math.cos(ent.angle) * ent.dist;
+            ent.y = cY + Math.sin(ent.angle) * ent.dist;
+
+            let dx = ent.x - player.x;
+            let dy = ent.y - player.y;
+            let range = Math.sqrt(dx * dx + dy * dy);
+
+            if (range < (ent.size + player.size)) {
+                if (ent.isHazard) {
+                    processGameOver();
+                } else {
+                    score++;
+                    document.getElementById('hud-target').innerText = `${score}/${targetScore}`;
+                    entities.splice(i, 1);
+                    
+                    if (score >= targetScore) {
+                        processLevelClear();
+                    }
+                }
+                continue;
+            }
+
+            if (ent.dist > Math.max(width, height) || ent.dist < -10) {
+                entities.splice(i, 1);
+            }
+        }
+    }
+
+    function processGameOver() {
+        gameState = 'gameover';
+        document.getElementById('over-status').innerText = `Sector ${currentLevel} Failed`;
+        document.getElementById('over-score').innerText = `${score}/${targetScore}`;
+        document.getElementById('over-time').innerText = elapsedTime.toFixed(2) + 's';
+        document.getElementById('over-record').innerText = '';
+        showScreen('screen-gameover');
+    }
+
+    function processLevelClear() {
+        gameState = 'clear';
+        document.getElementById('clear-level').innerText = `Sector ${currentLevel} Completed`;
+        document.getElementById('clear-time').innerText = elapsedTime.toFixed(2) + 's';
+
+        let recordBox = speedRecords[currentDifficulty];
+        let previousRecord = recordBox[currentLevel];
+        let isNewRecord = false;
+
+        if (!previousRecord || elapsedTime < previousRecord) {
+            recordBox[currentLevel] = elapsedTime;
+            isNewRecord = true;
+            saveStorage();
+        }
+
+        document.getElementById('clear-record').style.display = isNewRecord ? 'block' : 'none';
+
+        let currentUnlock = unlockedLevels[currentDifficulty] || 1;
+        if (currentLevel === currentUnlock && currentUnlock < TOTAL_LEVELS) {
+            unlockedLevels[currentDifficulty] = currentUnlock + 1;
+            saveStorage();
+        }
+
+        document.getElementById('btn-next').style.display = (currentLevel < TOTAL_LEVELS) ? 'block' : 'none';
+        showScreen('screen-clear');
+    }
+
+    function draw() {
+        ctx.fillStyle = '#05050a';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+        ctx.lineWidth = 1;
+        const gridSize = 40;
+        for (let x = 0; x < width; x += gridSize) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+        }
+        for (let y = 0; y < height; y += gridSize) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.arc(cX, cY, baseRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cX, cY, baseRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        if (gameState === 'playing' || gameState === 'gameover' || gameState === 'clear') {
+            entities.forEach(ent => {
+                ctx.beginPath();
+                ctx.arc(ent.x, ent.y, ent.size, 0, Math.PI * 2);
+                if (ent.isHazard) {
+                    ctx.fillStyle = '#ff007f';
+                    ctx.shadowColor = '#ff007f';
+                    ctx.shadowBlur = 10;
+                } else {
+                    ctx.fillStyle = '#00f0ff';
+                    ctx.shadowColor = '#00f0ff';
+                    ctx.shadowBlur = 8;
+                }
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 12;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    function loop(timestamp) {
+        let dt = timestamp - lastTime;
+        if(dt > 100) dt = 16.66;
+        lastTime = timestamp;
+
+        update(dt);
+        draw();
+
+        requestAnimationFrame(loop);
+    }
+
+    initStorage();
+    resize();
+    showScreen('screen-main');
+    requestAnimationFrame(loop);
+</script>
+</body>
+</html>

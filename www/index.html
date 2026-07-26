@@ -299,6 +299,29 @@ h2 {
   margin-top: 5px;
   font-weight: bold;
 }
+#btn-sound-toggle {
+  position: absolute;
+  top: env(safe-area-inset-top, 14px);
+  right: 14px;
+  z-index: 20;
+  pointer-events: auto;
+  background: rgba(5, 5, 10, 0.75);
+  border: 1px solid var(--border-color);
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+#btn-sound-toggle:active {
+  border-color: var(--neon-blue);
+  box-shadow: 0 0 10px var(--neon-blue);
+}
 </style>
 </head>
 <body>
@@ -325,6 +348,11 @@ h2 {
         <button id="opt-easy" class="selector-opt active" onclick="setDifficulty('easy')">Easy</button>
         <button id="opt-medium" class="selector-opt" onclick="setDifficulty('medium')">Med</button>
         <button id="opt-hard" class="selector-opt" onclick="setDifficulty('hard')">Hard</button>
+      </div>
+      <div class="hud-label" style="margin-bottom: 6px;">Music</div>
+      <div class="selector-container" id="track-selector">
+        <button id="opt-track-drift" class="selector-opt active" onclick="setMusicTrack('drift')">Deep Space</button>
+        <button id="opt-track-nebula" class="selector-opt" onclick="setMusicTrack('nebula')">Nebula</button>
       </div>
       <div class="level-grid" id="levelGrid"></div>
       <button class="btn btn-secondary" onclick="showScreen('screen-howto')">How To Play</button>
@@ -376,6 +404,8 @@ h2 {
       <button class="btn btn-secondary" onclick="showScreen('screen-main')">Level Selection</button>
     </div>
   </div>
+
+  <button id="btn-sound-toggle" aria-label="Toggle sound">🔊</button>
 </div>
 
 <script>
@@ -409,12 +439,84 @@ let spawnInterval = 1000;
 
 const gameContainer = document.getElementById('game-container');
 
+/* =========================================================
+   AUDIO ENGINE
+   Uses the pre-rendered mp3 loops/SFX in www/audio/ instead
+   of live synthesis. Simple, cheap, and sounds exactly like
+   what was previewed and approved.
+   ========================================================= */
+const MUSIC_TRACKS = {
+  drift:  'audio/music-deep-space-drift.mp3',
+  nebula: 'audio/music-gentle-nebula.mp3'
+};
+let currentTrack = 'drift';
+let musicAudio = null;
+let soundMuted = false;
+const MUSIC_VOLUME = 0.5;
+const SFX_VOLUME = 0.85;
+
+function loadMusicTrack(trackKey, autoplay) {
+  const wasPlaying = autoplay || (musicAudio && !musicAudio.paused);
+  if (musicAudio) {
+    musicAudio.pause();
+    musicAudio.src = '';
+  }
+  musicAudio = new Audio(MUSIC_TRACKS[trackKey]);
+  musicAudio.loop = true;
+  musicAudio.volume = soundMuted ? 0 : MUSIC_VOLUME;
+  if (wasPlaying) musicAudio.play().catch(() => {});
+}
+
+function setMusicTrack(trackKey) {
+  if (currentTrack === trackKey) return;
+  currentTrack = trackKey;
+  document.querySelectorAll('#track-selector .selector-opt').forEach(b => b.classList.remove('active'));
+  document.getElementById(`opt-track-${trackKey}`).classList.add('active');
+  loadMusicTrack(trackKey, true);
+  saveStorage();
+}
+
+function playCollectSound() {
+  const s = new Audio('audio/sfx-collect.mp3');
+  s.volume = soundMuted ? 0 : SFX_VOLUME;
+  s.play().catch(() => {});
+}
+
+function playHazardSound() {
+  const s = new Audio('audio/sfx-hazard.mp3');
+  s.volume = soundMuted ? 0 : SFX_VOLUME;
+  s.play().catch(() => {});
+}
+
+function unlockAudioOnce() {
+  loadMusicTrack(currentTrack, true);
+  document.removeEventListener('pointerdown', unlockAudioOnce);
+  document.removeEventListener('keydown', unlockAudioOnce);
+}
+document.addEventListener('pointerdown', unlockAudioOnce, { once: true });
+document.addEventListener('keydown', unlockAudioOnce, { once: true });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && musicAudio && musicAudio.paused && !soundMuted) {
+    musicAudio.play().catch(() => {});
+  }
+});
+
+document.getElementById('btn-sound-toggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  soundMuted = !soundMuted;
+  document.getElementById('btn-sound-toggle').innerText = soundMuted ? '🔇' : '🔊';
+  if (musicAudio) musicAudio.volume = soundMuted ? 0 : MUSIC_VOLUME;
+});
+/* ========================================================= */
+
 function initStorage() {
   try {
     const savedUnlocks = localStorage.getItem('orbit_unlocked_v2');
     const savedRecords = localStorage.getItem('orbit_records_v2');
+    const savedTrack = localStorage.getItem('orbit_track_v1');
     if (savedUnlocks) unlockedLevels = JSON.parse(savedUnlocks);
     if (savedRecords) speedRecords = JSON.parse(savedRecords);
+    if (savedTrack && MUSIC_TRACKS[savedTrack]) currentTrack = savedTrack;
   } catch(e) { console.warn("Storage not reachable:", e); }
 }
 
@@ -422,7 +524,14 @@ function saveStorage() {
   try {
     localStorage.setItem('orbit_unlocked_v2', JSON.stringify(unlockedLevels));
     localStorage.setItem('orbit_records_v2', JSON.stringify(speedRecords));
+    localStorage.setItem('orbit_track_v1', currentTrack);
   } catch(e) { console.warn("Failed to write progress:", e); }
+}
+
+function reflectTrackSelectionUI() {
+  document.querySelectorAll('#track-selector .selector-opt').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`opt-track-${currentTrack}`);
+  if (btn) btn.classList.add('active');
 }
 
 function resize() {
@@ -525,7 +634,7 @@ function nextLevel() {
 
 function handleTapInput(e) {
   if (gameState !== 'playing') return;
-  if (e.target && e.target.id === 'btn-quit-match') return;
+  if (e.target && (e.target.id === 'btn-quit-match' || e.target.id === 'btn-sound-toggle')) return;
   if (e && e.cancelable) e.preventDefault();
   player.dir *= -1;
 }
@@ -594,8 +703,10 @@ function update(dt) {
 
     if (range < (ent.size + player.size)) {
       if (ent.isHazard) {
+        playHazardSound();
         processGameOver();
       } else {
+        playCollectSound();
         score++;
         document.getElementById('hud-target').innerText = `${score}/${targetScore}`;
         entities.splice(i, 1);
@@ -712,6 +823,7 @@ function loop(timestamp) {
 }
 
 initStorage();
+reflectTrackSelectionUI();
 resize();
 showScreen('screen-main');
 requestAnimationFrame(loop);

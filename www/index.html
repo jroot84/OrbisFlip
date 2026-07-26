@@ -327,6 +327,36 @@ h2 {
   color: #8a8a9a;
   flex-shrink: 0;
 }
+.settings-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.track-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+.track-opt {
+  padding: 10px 4px;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #8a8a9a;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.track-opt.active {
+  background: var(--neon-blue);
+  color: #000;
+  border-color: var(--neon-blue);
+  font-weight: 900;
+}
 .selector-container.compact {
   width: auto;
   flex: 1;
@@ -394,14 +424,16 @@ h2 {
     <div id="screen-options" class="screen">
       <h2>Options</h2>
       <div class="settings-card">
-        <div class="settings-row">
+        <div class="settings-block">
           <span class="settings-label">Music</span>
-          <div class="selector-container compact" id="track-selector">
-            <button id="opt-track-drift" class="selector-opt active" onclick="setMusicTrack('drift')">Deep Space</button>
-            <button id="opt-track-nebula" class="selector-opt" onclick="setMusicTrack('nebula')">Nebula</button>
+          <div class="track-grid" id="track-selector">
+            <button id="opt-track-drift" class="track-opt active" onclick="setMusicTrack('drift')">Deep Space</button>
+            <button id="opt-track-nebula" class="track-opt" onclick="setMusicTrack('nebula')">Nebula</button>
+            <button id="opt-track-hush" class="track-opt" onclick="setMusicTrack('hush')">Stellar Hush</button>
+            <button id="opt-track-lullaby" class="track-opt" onclick="setMusicTrack('lullaby')">Orbit Lullaby</button>
           </div>
         </div>
-        <div class="settings-row">
+        <div class="settings-row" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
           <span class="settings-label">Sound</span>
           <div class="selector-container compact" id="sound-selector">
             <button id="opt-sound-on" class="selector-opt active" onclick="setSoundEnabled(true)">On</button>
@@ -506,8 +538,10 @@ const gameContainer = document.getElementById('game-container');
    what was previewed and approved.
    ========================================================= */
 const MUSIC_TRACKS = {
-  drift:  'audio/music-deep-space-drift.mp3',
-  nebula: 'audio/music-gentle-nebula.mp3'
+  drift:   'audio/music-deep-space-drift.mp3',
+  nebula:  'audio/music-gentle-nebula.mp3',
+  hush:    'audio/music-stellar-hush.mp3',
+  lullaby: 'audio/music-orbit-lullaby.mp3'
 };
 let currentTrack = 'drift';
 let musicAudio = null;
@@ -530,7 +564,7 @@ function loadMusicTrack(trackKey, autoplay) {
 function setMusicTrack(trackKey) {
   if (currentTrack === trackKey) return;
   currentTrack = trackKey;
-  document.querySelectorAll('#track-selector .selector-opt').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#track-selector .track-opt').forEach(b => b.classList.remove('active'));
   document.getElementById(`opt-track-${trackKey}`).classList.add('active');
   loadMusicTrack(trackKey, true);
   saveStorage();
@@ -593,7 +627,7 @@ function saveStorage() {
 }
 
 function reflectOptionsUI() {
-  document.querySelectorAll('#track-selector .selector-opt').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#track-selector .track-opt').forEach(b => b.classList.remove('active'));
   const trackBtn = document.getElementById(`opt-track-${currentTrack}`);
   if (trackBtn) trackBtn.classList.add('active');
 

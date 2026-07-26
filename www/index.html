@@ -427,17 +427,24 @@ h2 {
         <div class="settings-block">
           <span class="settings-label">Music</span>
           <div class="track-grid" id="track-selector">
-            <button id="opt-track-drift" class="track-opt active" onclick="setMusicTrack('drift')">Deep Space</button>
+            <button id="opt-track-drift" class="track-opt" onclick="setMusicTrack('drift')">Deep Space</button>
             <button id="opt-track-nebula" class="track-opt" onclick="setMusicTrack('nebula')">Nebula</button>
-            <button id="opt-track-hush" class="track-opt" onclick="setMusicTrack('hush')">Stellar Hush</button>
+            <button id="opt-track-hush" class="track-opt active" onclick="setMusicTrack('hush')">Stellar Hush</button>
             <button id="opt-track-lullaby" class="track-opt" onclick="setMusicTrack('lullaby')">Orbit Lullaby</button>
           </div>
         </div>
         <div class="settings-row" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
-          <span class="settings-label">Sound</span>
-          <div class="selector-container compact" id="sound-selector">
-            <button id="opt-sound-on" class="selector-opt active" onclick="setSoundEnabled(true)">On</button>
-            <button id="opt-sound-off" class="selector-opt" onclick="setSoundEnabled(false)">Off</button>
+          <span class="settings-label">Music</span>
+          <div class="selector-container compact" id="music-selector">
+            <button id="opt-music-on" class="selector-opt active" onclick="setMusicEnabled(true)">On</button>
+            <button id="opt-music-off" class="selector-opt" onclick="setMusicEnabled(false)">Off</button>
+          </div>
+        </div>
+        <div class="settings-row" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+          <span class="settings-label">Sound FX</span>
+          <div class="selector-container compact" id="sfx-selector">
+            <button id="opt-sfx-on" class="selector-opt active" onclick="setSfxEnabled(true)">On</button>
+            <button id="opt-sfx-off" class="selector-opt" onclick="setSfxEnabled(false)">Off</button>
           </div>
         </div>
       </div>
@@ -543,9 +550,10 @@ const MUSIC_TRACKS = {
   hush:    'audio/music-stellar-hush.mp3',
   lullaby: 'audio/music-orbit-lullaby.mp3'
 };
-let currentTrack = 'drift';
+let currentTrack = 'hush';
 let musicAudio = null;
-let soundMuted = false;
+let musicMuted = false;
+let sfxMuted = false;
 const MUSIC_VOLUME = 0.5;
 const SFX_VOLUME = 0.85;
 
@@ -557,7 +565,7 @@ function loadMusicTrack(trackKey, autoplay) {
   }
   musicAudio = new Audio(MUSIC_TRACKS[trackKey]);
   musicAudio.loop = true;
-  musicAudio.volume = soundMuted ? 0 : MUSIC_VOLUME;
+  musicAudio.volume = musicMuted ? 0 : MUSIC_VOLUME;
   if (wasPlaying) musicAudio.play().catch(() => {});
 }
 
@@ -571,14 +579,16 @@ function setMusicTrack(trackKey) {
 }
 
 function playCollectSound() {
+  if (sfxMuted) return;
   const s = new Audio('audio/sfx-collect.mp3');
-  s.volume = soundMuted ? 0 : SFX_VOLUME;
+  s.volume = SFX_VOLUME;
   s.play().catch(() => {});
 }
 
 function playHazardSound() {
+  if (sfxMuted) return;
   const s = new Audio('audio/sfx-hazard.mp3');
-  s.volume = soundMuted ? 0 : SFX_VOLUME;
+  s.volume = SFX_VOLUME;
   s.play().catch(() => {});
 }
 
@@ -590,16 +600,23 @@ function unlockAudioOnce() {
 document.addEventListener('pointerdown', unlockAudioOnce, { once: true });
 document.addEventListener('keydown', unlockAudioOnce, { once: true });
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && musicAudio && musicAudio.paused && !soundMuted) {
+  if (!document.hidden && musicAudio && musicAudio.paused && !musicMuted) {
     musicAudio.play().catch(() => {});
   }
 });
 
-function setSoundEnabled(enabled) {
-  soundMuted = !enabled;
-  document.getElementById('opt-sound-on').classList.toggle('active', enabled);
-  document.getElementById('opt-sound-off').classList.toggle('active', !enabled);
-  if (musicAudio) musicAudio.volume = soundMuted ? 0 : MUSIC_VOLUME;
+function setMusicEnabled(enabled) {
+  musicMuted = !enabled;
+  document.getElementById('opt-music-on').classList.toggle('active', enabled);
+  document.getElementById('opt-music-off').classList.toggle('active', !enabled);
+  if (musicAudio) musicAudio.volume = musicMuted ? 0 : MUSIC_VOLUME;
+  saveStorage();
+}
+
+function setSfxEnabled(enabled) {
+  sfxMuted = !enabled;
+  document.getElementById('opt-sfx-on').classList.toggle('active', enabled);
+  document.getElementById('opt-sfx-off').classList.toggle('active', !enabled);
   saveStorage();
 }
 /* ========================================================= */
@@ -609,11 +626,13 @@ function initStorage() {
     const savedUnlocks = localStorage.getItem('orbit_unlocked_v2');
     const savedRecords = localStorage.getItem('orbit_records_v2');
     const savedTrack = localStorage.getItem('orbit_track_v1');
-    const savedSound = localStorage.getItem('orbit_sound_v1');
+    const savedMusicOn = localStorage.getItem('orbit_music_v1');
+    const savedSfxOn = localStorage.getItem('orbit_sfx_v1');
     if (savedUnlocks) unlockedLevels = JSON.parse(savedUnlocks);
     if (savedRecords) speedRecords = JSON.parse(savedRecords);
     if (savedTrack && MUSIC_TRACKS[savedTrack]) currentTrack = savedTrack;
-    if (savedSound !== null) soundMuted = savedSound === '0';
+    if (savedMusicOn !== null) musicMuted = savedMusicOn === '0';
+    if (savedSfxOn !== null) sfxMuted = savedSfxOn === '0';
   } catch(e) { console.warn("Storage not reachable:", e); }
 }
 
@@ -622,7 +641,8 @@ function saveStorage() {
     localStorage.setItem('orbit_unlocked_v2', JSON.stringify(unlockedLevels));
     localStorage.setItem('orbit_records_v2', JSON.stringify(speedRecords));
     localStorage.setItem('orbit_track_v1', currentTrack);
-    localStorage.setItem('orbit_sound_v1', soundMuted ? '0' : '1');
+    localStorage.setItem('orbit_music_v1', musicMuted ? '0' : '1');
+    localStorage.setItem('orbit_sfx_v1', sfxMuted ? '0' : '1');
   } catch(e) { console.warn("Failed to write progress:", e); }
 }
 
@@ -631,8 +651,11 @@ function reflectOptionsUI() {
   const trackBtn = document.getElementById(`opt-track-${currentTrack}`);
   if (trackBtn) trackBtn.classList.add('active');
 
-  document.getElementById('opt-sound-on').classList.toggle('active', !soundMuted);
-  document.getElementById('opt-sound-off').classList.toggle('active', soundMuted);
+  document.getElementById('opt-music-on').classList.toggle('active', !musicMuted);
+  document.getElementById('opt-music-off').classList.toggle('active', musicMuted);
+
+  document.getElementById('opt-sfx-on').classList.toggle('active', !sfxMuted);
+  document.getElementById('opt-sfx-off').classList.toggle('active', sfxMuted);
 }
 
 function resize() {

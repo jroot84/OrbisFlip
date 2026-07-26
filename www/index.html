@@ -299,28 +299,59 @@ h2 {
   margin-top: 5px;
   font-weight: bold;
 }
-#btn-sound-toggle {
-  position: absolute;
-  top: env(safe-area-inset-top, 14px);
-  right: 14px;
-  z-index: 20;
-  pointer-events: auto;
-  background: rgba(5, 5, 10, 0.75);
-  border: 1px solid var(--border-color);
-  color: #fff;
-  width: 40px;
-  height: 40px;
+.settings-card {
+  width: 85%;
+  max-width: 320px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.settings-row + .settings-row {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.settings-label {
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #8a8a9a;
+  flex-shrink: 0;
+}
+.selector-container.compact {
+  width: auto;
+  flex: 1;
+  max-width: 210px;
+  margin-bottom: 0;
+}
+.btn-pause {
+  background: rgba(255, 0, 127, 0.15);
+  border: 1px solid var(--neon-pink);
+  color: #ffccdd;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   font-size: 17px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  backdrop-filter: blur(4px);
+  pointer-events: auto;
+  transition: all 0.2s ease;
 }
-#btn-sound-toggle:active {
-  border-color: var(--neon-blue);
-  box-shadow: 0 0 10px var(--neon-blue);
+.btn-pause:active {
+  background: var(--neon-pink);
+  color: #000;
+  box-shadow: 0 0 15px var(--neon-pink);
 }
 </style>
 </head>
@@ -331,7 +362,7 @@ h2 {
       <div class="hud-label">Objective</div>
       <div id="hud-target" class="hud-value">0/10</div>
     </div>
-    <button class="btn-quit" id="btn-quit-match">Menu</button>
+    <button class="btn-pause" id="btn-pause" aria-label="Pause">⏸</button>
     <div class="hud-panel" style="text-align: right;">
       <div class="hud-label">Time</div>
       <div id="hud-timer" class="hud-value">0.00s</div>
@@ -344,18 +375,41 @@ h2 {
     <div id="screen-main" class="screen active">
       <h1>Orbis Flip</h1>
       <div class="subtitle">Cosmic Drift</div>
-      <div class="selector-container">
+      <button class="btn" onclick="showScreen('screen-play')">Play</button>
+      <button class="btn btn-secondary" onclick="openOptions('screen-main')">Options</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-howto')">How To Play</button>
+    </div>
+
+    <div id="screen-play" class="screen">
+      <h2>Select Level</h2>
+      <div class="selector-container" id="difficulty-selector">
         <button id="opt-easy" class="selector-opt active" onclick="setDifficulty('easy')">Easy</button>
         <button id="opt-medium" class="selector-opt" onclick="setDifficulty('medium')">Med</button>
         <button id="opt-hard" class="selector-opt" onclick="setDifficulty('hard')">Hard</button>
       </div>
-      <div class="hud-label" style="margin-bottom: 6px;">Music</div>
-      <div class="selector-container" id="track-selector">
-        <button id="opt-track-drift" class="selector-opt active" onclick="setMusicTrack('drift')">Deep Space</button>
-        <button id="opt-track-nebula" class="selector-opt" onclick="setMusicTrack('nebula')">Nebula</button>
-      </div>
       <div class="level-grid" id="levelGrid"></div>
-      <button class="btn btn-secondary" onclick="showScreen('screen-howto')">How To Play</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-main')">Back</button>
+    </div>
+
+    <div id="screen-options" class="screen">
+      <h2>Options</h2>
+      <div class="settings-card">
+        <div class="settings-row">
+          <span class="settings-label">Music</span>
+          <div class="selector-container compact" id="track-selector">
+            <button id="opt-track-drift" class="selector-opt active" onclick="setMusicTrack('drift')">Deep Space</button>
+            <button id="opt-track-nebula" class="selector-opt" onclick="setMusicTrack('nebula')">Nebula</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Sound</span>
+          <div class="selector-container compact" id="sound-selector">
+            <button id="opt-sound-on" class="selector-opt active" onclick="setSoundEnabled(true)">On</button>
+            <button id="opt-sound-off" class="selector-opt" onclick="setSoundEnabled(false)">Off</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn" onclick="closeOptions()">Back</button>
     </div>
 
     <div id="screen-howto" class="screen">
@@ -381,6 +435,13 @@ h2 {
       <button class="btn" onclick="showScreen('screen-main')">Got It</button>
     </div>
 
+    <div id="screen-pause" class="screen">
+      <h2>Paused</h2>
+      <button class="btn" onclick="resumeGame()">Resume</button>
+      <button class="btn btn-secondary" onclick="openOptions('screen-pause')">Options</button>
+      <button class="btn btn-secondary" onclick="quitToMenu()">Quit to Menu</button>
+    </div>
+
     <div id="screen-gameover" class="screen">
       <h2 id="over-title" style="color: var(--neon-pink);">Orbis Flopped</h2>
       <div class="analytics">
@@ -390,7 +451,7 @@ h2 {
         <div id="over-record" class="record-alert"></div>
       </div>
       <button class="btn" onclick="retryLevel()">Try Again</button>
-      <button class="btn btn-secondary" onclick="showScreen('screen-main')">Level Selection</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-play')">Level Selection</button>
     </div>
 
     <div id="screen-clear" class="screen">
@@ -401,11 +462,9 @@ h2 {
         <div id="clear-record" class="record-alert">🏆 NEW PERSONAL BEST!</div>
       </div>
       <button id="btn-next" class="btn" onclick="nextLevel()">Next Sector</button>
-      <button class="btn btn-secondary" onclick="showScreen('screen-main')">Level Selection</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-play')">Level Selection</button>
     </div>
   </div>
-
-  <button id="btn-sound-toggle" aria-label="Toggle sound">🔊</button>
 </div>
 
 <script>
@@ -436,6 +495,7 @@ let player = { angle: 0, dir: 1, speed: 0.04, size: 8 };
 let entities = [];
 let spawnTimer = 0;
 let spawnInterval = 1000;
+let pausedAt = 0;
 
 const gameContainer = document.getElementById('game-container');
 
@@ -501,12 +561,13 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-document.getElementById('btn-sound-toggle').addEventListener('click', (e) => {
-  e.stopPropagation();
-  soundMuted = !soundMuted;
-  document.getElementById('btn-sound-toggle').innerText = soundMuted ? '🔇' : '🔊';
+function setSoundEnabled(enabled) {
+  soundMuted = !enabled;
+  document.getElementById('opt-sound-on').classList.toggle('active', enabled);
+  document.getElementById('opt-sound-off').classList.toggle('active', !enabled);
   if (musicAudio) musicAudio.volume = soundMuted ? 0 : MUSIC_VOLUME;
-});
+  saveStorage();
+}
 /* ========================================================= */
 
 function initStorage() {
@@ -514,9 +575,11 @@ function initStorage() {
     const savedUnlocks = localStorage.getItem('orbit_unlocked_v2');
     const savedRecords = localStorage.getItem('orbit_records_v2');
     const savedTrack = localStorage.getItem('orbit_track_v1');
+    const savedSound = localStorage.getItem('orbit_sound_v1');
     if (savedUnlocks) unlockedLevels = JSON.parse(savedUnlocks);
     if (savedRecords) speedRecords = JSON.parse(savedRecords);
     if (savedTrack && MUSIC_TRACKS[savedTrack]) currentTrack = savedTrack;
+    if (savedSound !== null) soundMuted = savedSound === '0';
   } catch(e) { console.warn("Storage not reachable:", e); }
 }
 
@@ -525,13 +588,17 @@ function saveStorage() {
     localStorage.setItem('orbit_unlocked_v2', JSON.stringify(unlockedLevels));
     localStorage.setItem('orbit_records_v2', JSON.stringify(speedRecords));
     localStorage.setItem('orbit_track_v1', currentTrack);
+    localStorage.setItem('orbit_sound_v1', soundMuted ? '0' : '1');
   } catch(e) { console.warn("Failed to write progress:", e); }
 }
 
-function reflectTrackSelectionUI() {
+function reflectOptionsUI() {
   document.querySelectorAll('#track-selector .selector-opt').forEach(b => b.classList.remove('active'));
-  const btn = document.getElementById(`opt-track-${currentTrack}`);
-  if (btn) btn.classList.add('active');
+  const trackBtn = document.getElementById(`opt-track-${currentTrack}`);
+  if (trackBtn) trackBtn.classList.add('active');
+
+  document.getElementById('opt-sound-on').classList.toggle('active', !soundMuted);
+  document.getElementById('opt-sound-off').classList.toggle('active', soundMuted);
 }
 
 function resize() {
@@ -547,6 +614,8 @@ function resize() {
   baseRadius = Math.min(width, height) * 0.32;
 }
 
+let optionsReturnScreen = 'screen-main';
+
 function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   if(screenId) {
@@ -554,14 +623,47 @@ function showScreen(screenId) {
   }
   if (screenId === 'screen-main') {
     gameState = 'menu';
+    document.getElementById('hud').style.display = 'none';
+  }
+  if (screenId === 'screen-play') {
+    gameState = 'menu';
     renderLevelGrid();
     document.getElementById('hud').style.display = 'none';
   }
 }
 
+function openOptions(fromScreen) {
+  optionsReturnScreen = fromScreen;
+  showScreen('screen-options');
+}
+
+function closeOptions() {
+  showScreen(optionsReturnScreen);
+}
+
+function pauseGame() {
+  if (gameState !== 'playing') return;
+  gameState = 'paused';
+  pausedAt = performance.now();
+  showScreen('screen-pause');
+}
+
+function resumeGame() {
+  if (gameState !== 'paused') return;
+  startTime += performance.now() - pausedAt;
+  lastTime = performance.now();
+  gameState = 'playing';
+  showScreen(null);
+}
+
+function quitToMenu() {
+  gameState = 'menu';
+  showScreen('screen-main');
+}
+
 function setDifficulty(diff) {
   currentDifficulty = diff;
-  document.querySelectorAll('.selector-opt').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#difficulty-selector .selector-opt').forEach(b => b.classList.remove('active'));
   document.getElementById(`opt-${diff}`).classList.add('active');
   renderLevelGrid();
 }
@@ -628,13 +730,13 @@ function nextLevel() {
   if (currentLevel < TOTAL_LEVELS) {
     launchLevel(currentLevel + 1);
   } else {
-    showScreen('screen-main');
+    showScreen('screen-play');
   }
 }
 
 function handleTapInput(e) {
   if (gameState !== 'playing') return;
-  if (e.target && (e.target.id === 'btn-quit-match' || e.target.id === 'btn-sound-toggle')) return;
+  if (e.target && e.target.id === 'btn-pause') return;
   if (e && e.cancelable) e.preventDefault();
   player.dir *= -1;
 }
@@ -642,15 +744,13 @@ function handleTapInput(e) {
 window.addEventListener('touchstart', handleTapInput, { passive: false });
 window.addEventListener('mousedown', handleTapInput);
 
-document.getElementById('btn-quit-match').addEventListener('click', (e) => {
+document.getElementById('btn-pause').addEventListener('click', (e) => {
   e.stopPropagation();
-  gameState = 'menu';
-  showScreen('screen-main');
+  pauseGame();
 });
-document.getElementById('btn-quit-match').addEventListener('touchstart', (e) => {
+document.getElementById('btn-pause').addEventListener('touchstart', (e) => {
   e.stopPropagation();
-  gameState = 'menu';
-  showScreen('screen-main');
+  pauseGame();
 });
 
 window.addEventListener('resize', resize);
@@ -785,7 +885,7 @@ function draw() {
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  if (gameState === 'playing' || gameState === 'gameover' || gameState === 'clear') {
+  if (gameState === 'playing' || gameState === 'paused' || gameState === 'gameover' || gameState === 'clear') {
     entities.forEach(ent => {
       ctx.beginPath();
       ctx.arc(ent.x, ent.y, ent.size, 0, Math.PI * 2);
@@ -823,7 +923,7 @@ function loop(timestamp) {
 }
 
 initStorage();
-reflectTrackSelectionUI();
+reflectOptionsUI();
 resize();
 showScreen('screen-main');
 requestAnimationFrame(loop);

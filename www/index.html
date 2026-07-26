@@ -545,10 +545,10 @@ const gameContainer = document.getElementById('game-container');
    what was previewed and approved.
    ========================================================= */
 const MUSIC_TRACKS = {
-  drift:   'audio/music-deep-space-drift.mp3',
-  nebula:  'audio/music-gentle-nebula.mp3',
-  hush:    'audio/music-stellar-hush.mp3',
-  lullaby: 'audio/music-orbit-lullaby.mp3'
+  drift:   'audio/music-deep-space-drift.wav',
+  nebula:  'audio/music-gentle-nebula.wav',
+  hush:    'audio/music-stellar-hush.wav',
+  lullaby: 'audio/music-orbit-lullaby.wav'
 };
 let currentTrack = 'hush';
 let musicAudio = null;
@@ -605,11 +605,23 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+function fadeAudioVolume(audioEl, targetVolume, durationMs) {
+  if (!audioEl) return;
+  const startVolume = audioEl.volume;
+  const startTime = performance.now();
+  function step(now) {
+    const t = Math.min((now - startTime) / durationMs, 1);
+    audioEl.volume = startVolume + (targetVolume - startVolume) * t;
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 function setMusicEnabled(enabled) {
   musicMuted = !enabled;
   document.getElementById('opt-music-on').classList.toggle('active', enabled);
   document.getElementById('opt-music-off').classList.toggle('active', !enabled);
-  if (musicAudio) musicAudio.volume = musicMuted ? 0 : MUSIC_VOLUME;
+  if (musicAudio) fadeAudioVolume(musicAudio, musicMuted ? 0 : MUSIC_VOLUME, 180);
   saveStorage();
 }
 

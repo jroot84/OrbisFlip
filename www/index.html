@@ -404,6 +404,7 @@ h2 {
   <div id="ui-layer">
     <div id="screen-main" class="screen active">
       <h1>Orbis Flip</h1>
+      <div class="subtitle">Cosmic Drift</div>
       <button class="btn" onclick="showScreen('screen-play')">Play</button>
       <button class="btn btn-secondary" onclick="openOptions('screen-main')">Options</button>
       <button class="btn btn-secondary" onclick="showScreen('screen-howto')">How To Play</button>
@@ -493,7 +494,7 @@ h2 {
     </div>
 
     <div id="screen-clear" class="screen">
-      <h2 style="color: var(--neon-green);">Sector Cleared!</h2>
+      <h2 id="clear-title" style="color: var(--neon-green);">Sector Cleared!</h2>
       <div class="analytics">
         <div id="clear-level" style="font-weight: bold;">Sector 1 Completed</div>
         <div>Completion Time: <span id="clear-time" class="highlight">0.00s</span></div>
@@ -891,8 +892,68 @@ function update(dt) {
   }
 }
 
+const LOSS_MESSAGES = [
+  "Orbis Flopped!",
+  "Gravity Wins This Round!",
+  "Orbit Interrupted!",
+  "Antimatter: 1, You: 0!",
+  "Houston, We Have a Flop!",
+  "Collapsed Like a Dying Star!",
+  "Flip Failed, Flop Confirmed!",
+  "You've Been Antimattered!",
+  "Orbital Mechanics Disagree!",
+  "One Small Flop for Orbkind!",
+  "Cosmic Drift, Meet Cosmic Drop!",
+  "You Got Orbited!",
+  "Escape Velocity: Not Achieved!",
+  "Cosmic Oopsie!",
+  "The Void Says Try Again!",
+  "Flip Side: You Lost!",
+  "Signal Lost in the Void!",
+  "The Orbit Had Other Plans!",
+  "Big Flop Energy!",
+  "Orbit: Terminated!",
+  "This Orbit Has Left the Building!",
+  "The Universe Remains Undefeated!",
+  "Well, That De-Orbited Fast!",
+  "Mission Control Is Filing a Report!",
+  "Spaghettified!"
+];
+
+const WIN_MESSAGES = [
+  "Sector Cleared!",
+  "Orbit Perfected!",
+  "Flawless Flip!",
+  "Antimatter Avoided!",
+  "You Out-Orbited the Void!",
+  "Gravity Bows to You!",
+  "Cosmic Drift Mastered!",
+  "Escape Velocity Achieved!",
+  "One Giant Flip for Orbkind!",
+  "Orbit Secured!",
+  "Houston, We Have a Winner!",
+  "Big Flip Energy!",
+  "You Flipped the Script!",
+  "Antimatter: 0, You: 1!",
+  "Legend of the Sector!",
+  "Orbit Like a Pro!",
+  "Stellar Performance!",
+  "You Bent the Orbit to Your Will!",
+  "Zero Antimatter, Maximum Style!",
+  "Mission Control Is Impressed!",
+  "The Void Blinked First!",
+  "Orbit: Optimized!",
+  "You Out-Flipped Physics!",
+  "Systems Nominal. You're Amazing!"
+];
+
+function randomFrom(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 function processGameOver() {
   gameState = 'gameover';
+  document.getElementById('over-title').innerText = randomFrom(LOSS_MESSAGES);
   document.getElementById('over-status').innerText = `Sector ${currentLevel} Failed`;
   document.getElementById('over-score').innerText = `${score}/${targetScore}`;
   document.getElementById('over-time').innerText = elapsedTime.toFixed(2) + 's';
@@ -902,6 +963,7 @@ function processGameOver() {
 
 function processLevelClear() {
   gameState = 'clear';
+  document.getElementById('clear-title').innerText = randomFrom(WIN_MESSAGES);
   document.getElementById('clear-level').innerText = `Sector ${currentLevel} Completed`;
   document.getElementById('clear-time').innerText = elapsedTime.toFixed(2) + 's';
 

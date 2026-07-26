@@ -1,0 +1,14 @@
+{
+  "name": "Orbis Flip",
+  "short_name": "OrbisFlip",
+  "description": "A simple, addictive time-challenge orbit game.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F6F2",
+  "theme_color": "#1F6F54",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

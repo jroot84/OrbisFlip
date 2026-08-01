@@ -887,6 +887,12 @@ function resize() {
 
 let optionsReturnScreen = 'screen-main';
 
+// Tracks whether we've pushed a browser/device-back history entry for the
+// level select screen, so the device's back button can return to the main
+// menu instead of exiting the app or navigating away from the page.
+let levelSelectHistoryActive = false;
+let suppressHistoryPop = false;
+
 function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   if(screenId) {
@@ -901,7 +907,30 @@ function showScreen(screenId) {
     renderLevelGrid();
     document.getElementById('hud').style.display = 'none';
   }
+
+  if (screenId === 'screen-play') {
+    if (!levelSelectHistoryActive) {
+      history.pushState({ screen: 'screen-play' }, '');
+      levelSelectHistoryActive = true;
+    }
+  } else if (levelSelectHistoryActive) {
+    levelSelectHistoryActive = false;
+    if (!suppressHistoryPop) {
+      history.back();
+    }
+  }
 }
+
+// Handles the device/browser back button while the level select screen is
+// open, sending the player to the main menu instead of leaving the app.
+window.addEventListener('popstate', () => {
+  if (levelSelectHistoryActive) {
+    levelSelectHistoryActive = false;
+    suppressHistoryPop = true;
+    showScreen('screen-main');
+    suppressHistoryPop = false;
+  }
+});
 
 function openOptions(fromScreen) {
   optionsReturnScreen = fromScreen;
